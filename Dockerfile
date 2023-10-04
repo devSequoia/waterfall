@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
 WORKDIR /app
-EXPOSE 8084
+EXPOSE 8086
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
@@ -32,4 +32,4 @@ RUN chown -R 1000:1000 /app
 USER 1000
 ENTRYPOINT ["dotnet", "waterfall.dll"]
 
-HEALTHCHECK --interval=60s --retries=5 CMD curl --fail http://localhost/health || exit 1
+HEALTHCHECK --interval=60s --retries=5 CMD curl --fail http://localhost:8086/health || exit 1
