@@ -76,7 +76,10 @@ public class GetPlayers(ILogger<GetPlayers> logger,
                         userDb.Add(player);
                     }
 
-                    Metrics.PgcrDownloaded.Add(1);
+                    lock (Metrics.PgcrDownloaded)
+                    {
+                        Metrics.PgcrDownloaded.Add(1);
+                    }
                 }
             });
 
