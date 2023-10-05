@@ -8,11 +8,11 @@ WORKDIR /src
 COPY ["waterfall.csproj", "."]
 RUN dotnet restore "./waterfall.csproj"
 COPY . .
-WORKDIR "/src/waterfall"
-RUN dotnet build "./waterfall.csproj" -c $BUILD_CONFIGURATION -a x64 -o /app/build
+WORKDIR "/src/."
+RUN dotnet build "waterfall.csproj" -c $BUILD_CONFIGURATION -a x64 -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "./waterfall.csproj" -c $BUILD_CONFIGURATION -a x64 -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "waterfall.csproj" -c $BUILD_CONFIGURATION -a x64 -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 ENV \
@@ -31,6 +31,6 @@ COPY --from=publish /app/publish .
 RUN chown -R 1000:1000 /app
 
 USER 1000
-ENTRYPOINT ["dotnet", "./waterfall.dll"]
+ENTRYPOINT ["dotnet", "waterfall.dll"]
 
 HEALTHCHECK --interval=60s --retries=5 CMD curl --fail http://localhost:8086/health || exit 1
