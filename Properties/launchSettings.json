@@ -2,10 +2,11 @@
   "profiles": {
     "Debug": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
+      "workingDirectory": "bin/Debug/net8.0/",
       "dotnetRunMessages": true,
       "applicationUrl": "http://localhost:5237"
     },
