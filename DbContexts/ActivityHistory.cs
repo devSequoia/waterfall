@@ -21,9 +21,9 @@ public class ActivityHistoryDb(IConfiguration configuration) : DbContext
         modelBuilder.Entity<Activity>(entity =>
         {
             // ReSharper disable StringLiteralTypo
-            entity.HasKey(e => e.Id).HasName("acthist_moons_pkey");
+            entity.HasKey(e => e.Id).HasName("acthist_pkey");
 
-            entity.ToTable("acthist_moons");
+            entity.ToTable("activityhistory");
 
             entity.Property(e => e.Id)
                 .UseIdentityAlwaysColumn()

@@ -8,7 +8,9 @@
       },
       "workingDirectory": "bin/Debug/net8.0/",
       "dotnetRunMessages": true,
-      "applicationUrl": "http://localhost:5237"
+      "applicationUrl": "http://localhost:5237",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     },
     "IIS Express": {
       "commandName": "IISExpress",

@@ -29,9 +29,21 @@ public class GetPlayers(ILogger<GetPlayers> logger,
                 await Task.Delay(500);
         }
 
+        if (JobStatus.ActivityHistoryFetching)
+        {
+            logger.LogInformation("[{service}]: waiting for activity history...", JobName);
+
+            while (JobStatus.ActivityHistoryFetching)
+                await Task.Delay(500);
+        }
+
         try
         {
-            var activityHistory = activityDb.Activities.ToList();
+            var activityHistory = activityDb.Activities
+#if DEBUG
+            .Take(50)
+#endif
+            .ToList();
 
             var userDb = new ConcurrentBag<User>();
             lock (userDb)
@@ -56,7 +68,7 @@ public class GetPlayers(ILogger<GetPlayers> logger,
                     pgcr.Response.ActivityDetails.ActivityReference.Select(x => x.DisplayProperties.Name);
                 var activityTime = pgcr.Response.Period.ToString("g");
 
-                logger.LogInformation("{service} processing {actName} from {actTime} ({actId})", JobName, activityName,
+                logger.LogInformation("[{service}] processing {actName} from {actTime} ({actId})", JobName, activityName,
                     activityTime, activity.InstanceId);
 
                 foreach (var pgcrEntry in pgcr.Response.Entries)
@@ -66,9 +78,7 @@ public class GetPlayers(ILogger<GetPlayers> logger,
 
                     var player = new User
                     {
-                        MembershipId = pgcrEntry.Player.DestinyUserInfo.MembershipId,
-                        BungieName = pgcrEntry.Player.DestinyUserInfo.BungieGlobalDisplayName + "#" +
-                                     pgcrEntry.Player.DestinyUserInfo.BungieGlobalDisplayNameCode
+                        MembershipId = pgcrEntry.Player.DestinyUserInfo.MembershipId
                     };
 
                     lock (userDb)
@@ -97,7 +107,7 @@ public class GetPlayers(ILogger<GetPlayers> logger,
             playerDb.Players.UpdateRange(userList);
             await playerDb.SaveChangesAsync();
 
-            logger.LogInformation("{service} added {count} players", JobName, userList.Count - beforeCount);
+            logger.LogInformation("[{service}] added {count} players", JobName, userList.Count - beforeCount);
         }
         catch (Exception e)
         {

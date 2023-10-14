@@ -127,7 +127,7 @@ public static class Program
                     q.AddTrigger(t => t
                         .WithIdentity("GetPlayersJob")
                         .ForJob(new JobKey("GetPlayersTrigger"))
-                        .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(30))));
+                        .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(60))));
                 })
                 .AddQuartzHostedService(options => { options.WaitForJobsToComplete = true; })
                 .AddTransient<GetActivityHistory>()

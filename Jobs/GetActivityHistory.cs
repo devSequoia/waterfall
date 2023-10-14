@@ -5,6 +5,7 @@ using DotNetBungieAPI.Models.Destiny.Definitions.ActivityModes;
 using DotNetBungieAPI.Service.Abstractions;
 using Quartz;
 using waterfall.DbContexts;
+using waterfall.Objects;
 using waterfall.Services;
 using Activity = waterfall.DbContexts.Activity;
 
@@ -16,18 +17,10 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
 {
     private const string JobName = "GetActivityHistory";
 
-    private const BungieMembershipType MembershipType = BungieMembershipType.TigerSteam;
-
-    private readonly List<long> _membershipIds = new()
-    {
-        4611686018484346823, // platnootie
-        4611686018474153927, // warokg
-        4611686018471516071 // moons
-    };
-
     public async Task Execute(IJobExecutionContext context)
     {
         logger.LogInformation("Starting task {service}", JobName);
+        JobStatus.ActivityHistoryFetching = true;
 
         if (!BungieClientStartup.IsReady)
         {
@@ -37,84 +30,79 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                 await Task.Delay(500);
         }
 
-        try
+        var sw = Stopwatch.StartNew();
+
+        foreach (var account in D2Accounts.GetAccountList())
         {
-            var sw = Stopwatch.StartNew();
+            var descriptor = account.Descriptor.ToString().PadLeft(4, '0');
 
-            foreach (var id in _membershipIds)
+            try
             {
-                logger.LogInformation("[{service}]: fetching characters for {id}...", JobName, id);
+                logger.LogInformation("[{service}]: fetching characters for #{id}...", JobName, descriptor);
 
-                var characterRequest = await bungieClient.ApiAccess.Destiny2.GetHistoricalStatsForAccount(
-                    MembershipType, id);
+                var characterRequest = await bungieClient.ApiAccess.Destiny2.GetHistoricalStatsForAccount(BungieMembershipType.TigerSteam, account.MembershipId);
 
-                var characterList = characterRequest.Response.Characters.Select(x => x.CharacterId).ToList();
+                var characterId = characterRequest.Response.Characters.First().CharacterId;
 
-                logger.LogInformation("[{service}]: found characters: {characters}", JobName,
-                    string.Join(", ", characterList));
+                var currentPage = 0;
 
-                foreach (var characterId in characterList)
+                while (true)
                 {
-                    var currentPage = 0;
+                    var activityPage = await bungieClient.ApiAccess.Destiny2.GetActivityHistory(BungieMembershipType.TigerSteam,
+                        account.MembershipId, characterId, 100, account.ModeType, currentPage);
 
-                    while (true)
+                    if (activityPage.Response.Activities.Count == 0)
                     {
-                        var activityPage = await bungieClient.ApiAccess.Destiny2.GetActivityHistory(MembershipType,
-                            id, characterId, 100, DestinyActivityModeType.Raid, currentPage);
-
-                        if (activityPage.Response.Activities.Count == 0)
-                        {
-                            logger.LogInformation("[{service}]: finished activity fetching for {id}", JobName,
-                                characterId);
-                            break;
-                        }
-
-                        var activityCount = 0;
-                        foreach (var activity in activityPage.Response.Activities)
-                        {
-                            activityCount++;
-
-                            if (activityDb.Activities.Any(x => x.InstanceId == activity.ActivityDetails.InstanceId && x.MembershipId == id))
-                                continue;
-
-                            var completed = activity.Values["completed"].BasicValue.DisplayValue == "Yes"
-                                            && activity.Values["completionReason"].BasicValue.DisplayValue ==
-                                            "Objective Completed";
-
-                            var oldTime = activity.Period.ToUniversalTime();
-                            var cleanTime = new DateTime(oldTime.Year, oldTime.Month, oldTime.Day, oldTime.Hour,
-                                oldTime.Minute, oldTime.Second);
-
-                            var newActivity = new Activity
-                            {
-                                MembershipId = id,
-                                ActivityHash = activity.ActivityDetails.ActivityReference.Select(x => x.Hash),
-                                InstanceId = activity.ActivityDetails.InstanceId,
-                                IsCompleted = completed,
-                                Time = cleanTime
-                            };
-
-                            await activityDb.Activities.AddAsync(newActivity);
-                        }
-
-                        logger.LogInformation("[{service}]: fetched {count} activities from page {page}", JobName,
-                            activityCount, currentPage);
-                        currentPage++;
+                        logger.LogInformation("[{service}]: finished activity fetching for {id}", JobName,
+                            descriptor);
+                        break;
                     }
+
+                    var activityCount = 0;
+                    foreach (var activity in activityPage.Response.Activities)
+                    {
+                        activityCount++;
+
+                        if (activityDb.Activities.Any(x => x.InstanceId == activity.ActivityDetails.InstanceId && x.MembershipId == account.MembershipId))
+                            continue;
+
+                        var completed = activity.Values["completed"].BasicValue.DisplayValue == "Yes"
+                                        && activity.Values["completionReason"].BasicValue.DisplayValue ==
+                                        "Objective Completed";
+
+                        var oldTime = activity.Period.ToUniversalTime();
+                        var cleanTime = new DateTime(oldTime.Year, oldTime.Month, oldTime.Day, oldTime.Hour,
+                            oldTime.Minute, oldTime.Second);
+
+                        var newActivity = new Activity
+                        {
+                            MembershipId = account.MembershipId,
+                            Time = cleanTime,
+                            ActivityHash = activity.ActivityDetails.ActivityReference.Select(x => x.Hash),
+                            InstanceId = activity.ActivityDetails.InstanceId,
+                            IsCompleted = completed
+                        };
+
+                        await activityDb.Activities.AddAsync(newActivity);
+                    }
+
+                    logger.LogInformation("[{service}]: fetched {count} activities from page {page}", JobName,
+                        activityCount, currentPage);
+                    currentPage++;
                 }
+
+            }
+            catch (Exception e)
+            {
+                if (!e.GetType().IsAssignableFrom(typeof(TaskCanceledException)))
+                    logger.LogError(e, "Exception in {service}", JobName);
             }
 
             await activityDb.SaveChangesAsync();
-
-            sw.Stop();
-            logger.LogInformation("[{service}]: finished in {time}", JobName, sw.Elapsed);
-        }
-        catch (Exception e)
-        {
-            if (!e.GetType().IsAssignableFrom(typeof(TaskCanceledException)))
-                logger.LogError(e, "Exception in {service}", JobName);
         }
 
-        logger.LogInformation("Finished task {service}", JobName);
+        sw.Stop();
+        logger.LogInformation("[{service}]: finished in {time}", JobName, sw.Elapsed);
+        JobStatus.ActivityHistoryFetching = false;
     }
 }
