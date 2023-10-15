@@ -24,7 +24,8 @@ public class ProcessActivity(ILogger<GetActivityHistory> logger, IBungieClient b
     {
         // await DiscordWebhook.SendMessage($"New activity: {activity.InstanceId}");
 
-        var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId, CancellationToken.None);
+        var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId,
+            CancellationToken.None);
 
         var activityName =
             pgcr.Response.ActivityDetails.ActivityReference.Select(x => x.DisplayProperties.Name);
@@ -36,7 +37,7 @@ public class ProcessActivity(ILogger<GetActivityHistory> logger, IBungieClient b
             activityTime, activity.InstanceId);
 
         var embedBuilder = new EmbedBuilder()
-            .WithTitle($"New PGCR found")
+            .WithTitle("New PGCR found")
             .WithColor(Color.Blue)
             .WithUrl(activityUrl)
             .WithTimestamp(pgcr.Response.Period)
@@ -53,7 +54,8 @@ public class ProcessActivity(ILogger<GetActivityHistory> logger, IBungieClient b
             if (usersToIgnore.Any(x => x.MembershipId == player.Player.DestinyUserInfo.MembershipId))
                 continue;
 
-            var playerFromDb = playerDb.Players.FirstOrDefault(x => x.MembershipId == player.Player.DestinyUserInfo.MembershipId);
+            var playerFromDb =
+                playerDb.Players.FirstOrDefault(x => x.MembershipId == player.Player.DestinyUserInfo.MembershipId);
             if (playerFromDb == null)
             {
                 playerFromDb = new Player
@@ -72,9 +74,12 @@ public class ProcessActivity(ILogger<GetActivityHistory> logger, IBungieClient b
             if (!killsOver && !deathsOver)
                 continue;
 
-            var nameTask = await bungieClient.ApiAccess.User.GetMembershipDataById(playerFromDb.MembershipId, BungieMembershipType.All);
+            var nameTask =
+                await bungieClient.ApiAccess.User.GetMembershipDataById(playerFromDb.MembershipId,
+                    BungieMembershipType.All);
             var primaryMembership = nameTask.Response.GetDestinyPrimaryMembership();
-            var bungieName = primaryMembership.BungieGlobalDisplayName + "#" + primaryMembership.BungieGlobalDisplayNameCode?.ToString().PadLeft(4, '0');
+            var bungieName = primaryMembership.BungieGlobalDisplayName + "#" +
+                             primaryMembership.BungieGlobalDisplayNameCode?.ToString().PadLeft(4, '0');
 
             var userSb = new StringBuilder();
             userSb.Append($"[{bungieName}](https://b.moons.bio/{playerFromDb.MembershipId}) ");
@@ -82,16 +87,22 @@ public class ProcessActivity(ILogger<GetActivityHistory> logger, IBungieClient b
             userSb.Append($"**D**: {player.Values["deaths"].BasicValue.Value}, ");
             userSb.Append($"**F**: {player.Values["completed"].BasicValue.DisplayValue})\n");
 
-            var clanTask = await bungieClient.ApiAccess.GroupV2.GetGroupsForMember(player.Player.DestinyUserInfo.MembershipType, player.Player.DestinyUserInfo.MembershipId, GroupsForMemberFilter.All, GroupType.Clan);
+            var clanTask = await bungieClient.ApiAccess.GroupV2.GetGroupsForMember(
+                player.Player.DestinyUserInfo.MembershipType, player.Player.DestinyUserInfo.MembershipId,
+                GroupsForMemberFilter.All, GroupType.Clan);
             var clan = clanTask.Response.Results.FirstOrDefault();
             if (clan != null)
-                userSb.AppendLine($"> **C**: [{clan.Group.Name}](https://www.bungie.net/7/en/Clan/Profile/{clan.Group.GroupId}) [{clan.Group.ClanInfo.ClanCallSign}]");
+                userSb.AppendLine(
+                    $"> **C**: [{clan.Group.Name}](https://www.bungie.net/7/en/Clan/Profile/{clan.Group.GroupId}) [{clan.Group.ClanInfo.ClanCallSign}]");
 
-            var mostUsedWeapon = player.ExtendedData.Weapons.OrderByDescending(x => x.Values["uniqueWeaponKills"].BasicValue.Value).FirstOrDefault();
+            var mostUsedWeapon = player.ExtendedData.Weapons
+                .OrderByDescending(x => x.Values["uniqueWeaponKills"].BasicValue.Value).FirstOrDefault();
             if (mostUsedWeapon != null)
             {
                 var hash = mostUsedWeapon.ItemReference.Hash ?? 0;
-                var weapon = await bungieClient.ApiAccess.Destiny2.GetDestinyEntityDefinition<DestinyInventoryItemDefinition>(DefinitionsEnum.DestinyInventoryItemDefinition, hash);
+                var weapon =
+                    await bungieClient.ApiAccess.Destiny2.GetDestinyEntityDefinition<DestinyInventoryItemDefinition>(
+                        DefinitionsEnum.DestinyInventoryItemDefinition, hash);
                 userSb.AppendLine($"> **W**: {weapon.Response.DisplayProperties.Name}");
             }
 

@@ -38,10 +38,10 @@ public class GetAllPlayers(ILogger<GetAllPlayers> logger,
         try
         {
             var activityHistory = activityDb.Activities
-            // #if DEBUG
-            //          .Take(500)
-            // #endif
-            .ToList();
+                // #if DEBUG
+                //          .Take(500)
+                // #endif
+                .ToList();
 
             var userDb = new ConcurrentBag<Player>();
             lock (userDb)
@@ -59,13 +59,15 @@ public class GetAllPlayers(ILogger<GetAllPlayers> logger,
 
             await Parallel.ForEachAsync(activityHistory, options, async (activity, _) =>
             {
-                var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId, CancellationToken.None);
+                var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId,
+                    CancellationToken.None);
 
                 var activityName =
                     pgcr.Response.ActivityDetails.ActivityReference.Select(x => x.DisplayProperties.Name);
                 var activityTime = pgcr.Response.Period.ToString("g");
 
-                logger.LogInformation("[{service}] processing {actName} from {actTime} ({actId})", JobName, activityName,
+                logger.LogInformation("[{service}] processing {actName} from {actTime} ({actId})", JobName,
+                    activityName,
                     activityTime, activity.InstanceId);
 
                 foreach (var pgcrEntry in pgcr.Response.Entries)

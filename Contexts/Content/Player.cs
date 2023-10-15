@@ -1,6 +1,6 @@
 namespace waterfall.Contexts.Content;
 
-public partial class Player
+public class Player
 {
     public long MembershipId { get; set; }
     public bool IsBanned { get; set; }

@@ -3,8 +3,8 @@ using DotNetBungieAPI.Extensions;
 using DotNetBungieAPI.Models;
 using DotNetBungieAPI.Service.Abstractions;
 using Quartz;
-using waterfall.Contexts;
 using waterfall.Constants;
+using waterfall.Contexts;
 using waterfall.Services;
 using Activity = waterfall.Contexts.Content.Activity;
 
@@ -41,14 +41,17 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
             {
                 logger.LogInformation("[{service}]: fetching characters for #{id}...", JobName, descriptor);
 
-                var characterRequest = await bungieClient.ApiAccess.Destiny2.GetHistoricalStatsForAccount(BungieMembershipType.TigerSteam, account.MembershipId);
+                var characterRequest =
+                    await bungieClient.ApiAccess.Destiny2.GetHistoricalStatsForAccount(BungieMembershipType.TigerSteam,
+                        account.MembershipId);
                 var characterId = characterRequest.Response.Characters.First().CharacterId;
 
                 var currentPage = 0;
 
                 while (true)
                 {
-                    var activityPage = await bungieClient.ApiAccess.Destiny2.GetActivityHistory(BungieMembershipType.TigerSteam,
+                    var activityPage = await bungieClient.ApiAccess.Destiny2.GetActivityHistory(
+                        BungieMembershipType.TigerSteam,
                         account.MembershipId, characterId, 10, account.ModeType, currentPage);
 
                     if (activityPage.Response.Activities.Count == 0)
@@ -65,7 +68,9 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                     {
                         activityCount++;
 
-                        if (activityList.Any(x => x.InstanceId == activity.ActivityDetails.InstanceId && x.MembershipId == account.MembershipId))
+                        if (activityList.Any(x =>
+                                x.InstanceId == activity.ActivityDetails.InstanceId &&
+                                x.MembershipId == account.MembershipId))
                             continue;
 
                         var completed = activity.Values["completed"].BasicValue.DisplayValue == "Yes"
@@ -85,7 +90,9 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                             IsCompleted = completed
                         };
 
-                        _ = Task.Run(() => new ProcessActivity(logger, bungieClient, playerDb).ProcessActivityData(newActivity, account.Descriptor));
+                        _ = Task.Run(() =>
+                            new ProcessActivity(logger, bungieClient, playerDb).ProcessActivityData(newActivity,
+                                account.Descriptor));
 
                         await activityDb.Activities.AddAsync(newActivity);
                     }

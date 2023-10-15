@@ -50,7 +50,8 @@ public static class Program
             EnsureDirectoryExists(_configuration["Bungie:ManifestPath"]);
 
             Metrics.Initialize();
-            DiscordWebhook.Initialize(_configuration.GetConnectionString("DiscordWebhook") ?? throw new InvalidOperationException());
+            DiscordWebhook.Initialize(_configuration.GetConnectionString("DiscordWebhook") ??
+                                      throw new InvalidOperationException());
 
             builder.Services.AddOpenTelemetry()
                 .WithMetrics(x => x.AddMeter("PGCRScraper")
