@@ -1,6 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Security.Cryptography.X509Certificates;
 using DotNetBungieAPI.Extensions;
 using DotNetBungieAPI.Service.Abstractions;
 using Quartz;
@@ -10,7 +8,7 @@ using waterfall.Services;
 
 namespace waterfall.Jobs;
 
-public class GetPlayers(ILogger<GetPlayers> logger,
+public class GetAllPlayers(ILogger<GetAllPlayers> logger,
     ActivityHistoryDb activityDb,
     PlayerDb playerDb,
     IBungieClient bungieClient) : IJob

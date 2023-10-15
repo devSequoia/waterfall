@@ -6,11 +6,13 @@ using Quartz;
 using waterfall.Contexts;
 using waterfall.Constants;
 using waterfall.Services;
+using Activity = waterfall.Contexts.Content.Activity;
 
 namespace waterfall.Jobs;
 
 public class GetActivityHistory(ILogger<GetActivityHistory> logger,
     ActivityHistoryDb activityDb,
+    PlayerDb playerDb,
     IBungieClient bungieClient) : IJob
 {
     private const string JobName = "GetActivityHistory";
@@ -19,6 +21,7 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
     {
         logger.LogInformation("Starting task {service}", JobName);
         JobStatus.ActivityHistoryFetching = true;
+        JobStatus.ActivityHistoryFetchAll = false;
 
         if (!BungieClientStartup.IsReady)
         {
@@ -39,7 +42,6 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                 logger.LogInformation("[{service}]: fetching characters for #{id}...", JobName, descriptor);
 
                 var characterRequest = await bungieClient.ApiAccess.Destiny2.GetHistoricalStatsForAccount(BungieMembershipType.TigerSteam, account.MembershipId);
-
                 var characterId = characterRequest.Response.Characters.First().CharacterId;
 
                 var currentPage = 0;
@@ -47,7 +49,7 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                 while (true)
                 {
                     var activityPage = await bungieClient.ApiAccess.Destiny2.GetActivityHistory(BungieMembershipType.TigerSteam,
-                        account.MembershipId, characterId, 100, account.ModeType, currentPage);
+                        account.MembershipId, characterId, 10, account.ModeType, currentPage);
 
                     if (activityPage.Response.Activities.Count == 0)
                     {
@@ -57,11 +59,13 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                     }
 
                     var activityCount = 0;
+                    var activityList = activityDb.Activities.ToList();
+
                     foreach (var activity in activityPage.Response.Activities)
                     {
                         activityCount++;
 
-                        if (activityDb.Activities.Any(x => x.InstanceId == activity.ActivityDetails.InstanceId && x.MembershipId == account.MembershipId))
+                        if (activityList.Any(x => x.InstanceId == activity.ActivityDetails.InstanceId && x.MembershipId == account.MembershipId))
                             continue;
 
                         var completed = activity.Values["completed"].BasicValue.DisplayValue == "Yes"
@@ -72,7 +76,7 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                         var cleanTime = new DateTime(oldTime.Year, oldTime.Month, oldTime.Day, oldTime.Hour,
                             oldTime.Minute, oldTime.Second);
 
-                        var newActivity = new Contexts.Content.Activity
+                        var newActivity = new Activity
                         {
                             MembershipId = account.MembershipId,
                             Time = cleanTime,
@@ -81,14 +85,18 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                             IsCompleted = completed
                         };
 
+                        _ = Task.Run(() => new ProcessActivity(logger, bungieClient, playerDb).ProcessActivityData(newActivity, account.Descriptor));
+
                         await activityDb.Activities.AddAsync(newActivity);
                     }
 
                     logger.LogInformation("[{service}]: fetched {count} activities from page {page}", JobName,
                         activityCount, currentPage);
                     currentPage++;
-                }
 
+                    if (!JobStatus.ActivityHistoryFetchAll)
+                        break;
+                }
             }
             catch (Exception e)
             {
@@ -96,7 +104,7 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                     logger.LogError(e, "Exception in {service}", JobName);
             }
 
-            await activityDb.SaveChangesAsync();
+            // await activityDb.SaveChangesAsync();
         }
 
         sw.Stop();

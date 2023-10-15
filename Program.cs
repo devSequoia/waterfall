@@ -50,6 +50,7 @@ public static class Program
             EnsureDirectoryExists(_configuration["Bungie:ManifestPath"]);
 
             Metrics.Initialize();
+            DiscordWebhook.Initialize(_configuration.GetConnectionString("DiscordWebhook") ?? throw new InvalidOperationException());
 
             builder.Services.AddOpenTelemetry()
                 .WithMetrics(x => x.AddMeter("PGCRScraper")
@@ -112,26 +113,27 @@ public static class Program
                                 .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(16, 50))
                                 .InTimeZone(TimeZoneInfo.Utc)));
 
-                    q.ScheduleJob<GetPlayers>(trigger => trigger
-                        .WithIdentity("GetPlayersTrigger")
-                        .WithDailyTimeIntervalSchedule(
-                            s => s.WithIntervalInHours(24)
-                                .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(17, 00))
-                                .InTimeZone(TimeZoneInfo.Utc)));
-
-                    // q.AddTrigger(t => t
-                    //     .WithIdentity("GetActivityHistoryJob")
-                    //     .ForJob(new JobKey("GetActivityHistoryTrigger"))
-                    //     .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(10))));
+                    // q.ScheduleJob<GetPlayers>(trigger => trigger
+                    //     .WithIdentity("GetPlayersTrigger")
+                    // .WithDailyTimeIntervalSchedule(
+                    //     s => s.WithIntervalInHours(24)
+                    //         .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(17, 00))
+                    //         .InTimeZone(TimeZoneInfo.Utc)));
+                    // );
 
                     q.AddTrigger(t => t
-                        .WithIdentity("GetPlayersJob")
-                        .ForJob(new JobKey("GetPlayersTrigger"))
+                        .WithIdentity("GetActivityHistoryJob")
+                        .ForJob(new JobKey("GetActivityHistoryTrigger"))
                         .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(10))));
+
+                    // q.AddTrigger(t => t
+                    //     .WithIdentity("GetPlayersJob")
+                    //     .ForJob(new JobKey("GetPlayersTrigger"))
+                    //     .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(10))));
                 })
                 .AddQuartzHostedService(options => { options.WaitForJobsToComplete = true; })
                 .AddTransient<GetActivityHistory>()
-                .AddTransient<GetPlayers>();
+                .AddTransient<GetAllPlayers>();
 
             var app = builder.Build();
             app.UseSerilogRequestLogging();
