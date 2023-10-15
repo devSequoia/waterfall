@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using waterfall.Contexts.Content;
+using Microsoft.EntityFrameworkCore;
 
-namespace waterfall.DbContexts;
+namespace waterfall.Contexts;
 
-public class ActivityHistoryDb(IConfiguration configuration) : DbContext
+public partial class ActivityHistoryDb(IConfiguration configuration) : DbContext
 {
     private readonly string? _connectionString = configuration.GetConnectionString("PostgreSQLDb");
 
@@ -20,7 +21,6 @@ public class ActivityHistoryDb(IConfiguration configuration) : DbContext
     {
         modelBuilder.Entity<Activity>(entity =>
         {
-            // ReSharper disable StringLiteralTypo
             entity.HasKey(e => e.Id).HasName("acthist_pkey");
 
             entity.ToTable("activityhistory");
@@ -35,17 +35,10 @@ public class ActivityHistoryDb(IConfiguration configuration) : DbContext
             entity.Property(e => e.Time)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("time");
-            // ReSharper restore StringLiteralTypo
         });
-    }
-}
 
-public class Activity
-{
-    public int Id { get; set; }
-    public long MembershipId { get; set; }
-    public DateTime Time { get; set; }
-    public long ActivityHash { get; set; }
-    public long InstanceId { get; set; }
-    public bool IsCompleted { get; set; }
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }

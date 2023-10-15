@@ -1,13 +1,11 @@
 ﻿using System.Diagnostics;
 using DotNetBungieAPI.Extensions;
 using DotNetBungieAPI.Models;
-using DotNetBungieAPI.Models.Destiny.Definitions.ActivityModes;
 using DotNetBungieAPI.Service.Abstractions;
 using Quartz;
-using waterfall.DbContexts;
-using waterfall.Objects;
+using waterfall.Contexts;
+using waterfall.Constants;
 using waterfall.Services;
-using Activity = waterfall.DbContexts.Activity;
 
 namespace waterfall.Jobs;
 
@@ -74,7 +72,7 @@ public class GetActivityHistory(ILogger<GetActivityHistory> logger,
                         var cleanTime = new DateTime(oldTime.Year, oldTime.Month, oldTime.Day, oldTime.Hour,
                             oldTime.Minute, oldTime.Second);
 
-                        var newActivity = new Activity
+                        var newActivity = new Contexts.Content.Activity
                         {
                             MembershipId = account.MembershipId,
                             Time = cleanTime,

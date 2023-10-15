@@ -8,7 +8,7 @@ using OpenTelemetry.Metrics;
 using Quartz;
 using Serilog;
 using Serilog.Events;
-using waterfall.DbContexts;
+using waterfall.Contexts;
 using waterfall.Jobs;
 using waterfall.Services;
 
@@ -127,7 +127,7 @@ public static class Program
                     q.AddTrigger(t => t
                         .WithIdentity("GetPlayersJob")
                         .ForJob(new JobKey("GetPlayersTrigger"))
-                        .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(60))));
+                        .StartAt(DateBuilder.EvenSecondDate(DateTimeOffset.UtcNow.AddSeconds(10))));
                 })
                 .AddQuartzHostedService(options => { options.WaitForJobsToComplete = true; })
                 .AddTransient<GetActivityHistory>()

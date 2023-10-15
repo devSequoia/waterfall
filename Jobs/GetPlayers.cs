@@ -1,9 +1,11 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography.X509Certificates;
 using DotNetBungieAPI.Extensions;
 using DotNetBungieAPI.Service.Abstractions;
 using Quartz;
-using waterfall.DbContexts;
+using waterfall.Contexts;
+using waterfall.Contexts.Content;
 using waterfall.Services;
 
 namespace waterfall.Jobs;
@@ -15,8 +17,6 @@ public class GetPlayers(ILogger<GetPlayers> logger,
 {
     private const string JobName = "GetPlayers";
 
-    [SuppressMessage("Reliability", "CA2016:Forward the 'CancellationToken' parameter to methods",
-        Justification = "One PGCR failing to download causes them all to cancel.")]
     public async Task Execute(IJobExecutionContext context)
     {
         logger.LogInformation("Starting task {service}", JobName);
@@ -40,12 +40,12 @@ public class GetPlayers(ILogger<GetPlayers> logger,
         try
         {
             var activityHistory = activityDb.Activities
-#if DEBUG
-            .Take(50)
-#endif
+            // #if DEBUG
+            //          .Take(500)
+            // #endif
             .ToList();
 
-            var userDb = new ConcurrentBag<User>();
+            var userDb = new ConcurrentBag<Player>();
             lock (userDb)
             {
                 foreach (var playerDbPlayer in playerDb.Players)
@@ -61,8 +61,7 @@ public class GetPlayers(ILogger<GetPlayers> logger,
 
             await Parallel.ForEachAsync(activityHistory, options, async (activity, _) =>
             {
-                // ReSharper disable once MethodSupportsCancellation
-                var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId);
+                var pgcr = await bungieClient.ApiAccess.Destiny2.GetPostGameCarnageReport(activity.InstanceId, CancellationToken.None);
 
                 var activityName =
                     pgcr.Response.ActivityDetails.ActivityReference.Select(x => x.DisplayProperties.Name);
@@ -76,7 +75,7 @@ public class GetPlayers(ILogger<GetPlayers> logger,
                     if (userDb.Any(x => x.MembershipId == pgcrEntry.Player.DestinyUserInfo.MembershipId))
                         continue;
 
-                    var player = new User
+                    var player = new Player
                     {
                         MembershipId = pgcrEntry.Player.DestinyUserInfo.MembershipId
                     };
@@ -104,10 +103,38 @@ public class GetPlayers(ILogger<GetPlayers> logger,
             foreach (var item in itemsToRemove)
                 userList.Remove(item);
 
-            playerDb.Players.UpdateRange(userList);
-            await playerDb.SaveChangesAsync();
+            var toAddCount = userList.Count - beforeCount;
+            logger.LogInformation("[{service}] {count} players to add", JobName, toAddCount);
 
-            logger.LogInformation("[{service}] added {count} players", JobName, userList.Count - beforeCount);
+            var playerDbPlayers = playerDb.Players.ToList();
+            logger.LogInformation("[{service}] {count} players in db", JobName, playerDbPlayers.Count);
+
+            await Task.Delay(1000);
+
+            if (toAddCount == 0)
+                return;
+
+            var i = 0;
+            foreach (var item in userList)
+            {
+                if (playerDbPlayers.Any(x => x.MembershipId == item.MembershipId))
+                    continue;
+
+                playerDb.Players.Add(item);
+                i++;
+
+                if (i == 250)
+                {
+                    await playerDb.SaveChangesAsync();
+                    logger.LogInformation("[{service}] sent chunk of {count} to db", JobName, i);
+                    i = 0;
+                }
+            }
+
+            if (i > 0)
+                await playerDb.SaveChangesAsync();
+
+            logger.LogInformation("[{service}] added total of {count} players", JobName, toAddCount);
         }
         catch (Exception e)
         {

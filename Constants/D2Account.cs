@@ -1,6 +1,6 @@
 using DotNetBungieAPI.Models.Destiny.Definitions.ActivityModes;
 
-namespace waterfall.Objects;
+namespace waterfall.Constants;
 
 public class D2Accounts
 {
